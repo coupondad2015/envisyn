@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mosaic Simon Says – EnviSyn</title>
+  <style>
+    :root {
+      --bg-main: #0b2224;
+      --bg-inner: #102a2d;
+      --ring-gold: #c9a35a;
+      --ring-gold-dark: #8a6c30;
+      --button-1: #6fc2b0;
+      --button-2: #f1c87b;
+      --button-3: #e89a86;
+      --button-4: #9ab6e4;
+      --button-active-overlay: rgba(255, 255, 255, 0.28);
+      --text-main: #f8f4ec;
+      --text-subtle: #c7d3cf;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, #17393d 0, #050b0c 60%);
+      color: var(--text-main);
+    }
+
+    .game-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .game-title {
+      font-size: 1.1rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-subtle);
+      text-align: center;
+    }
+
+    .game-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-main);
+      opacity: 0.9;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    /* Sound toggle */
+    .sound-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .sound-label {
+      font-size: 0.85rem;
+      color: var(--text-subtle);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #344b4f;
+      transition: 0.2s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      top: 3px;
+      background-color: #f8f4ec;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+
+    .switch input:checked + .slider {
+      background-color: #d0a95a;
+    }
+
+    .switch input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* DISC / DEVICE */
+
+    .device-shell {
+      width: 720px;
+      height: 720px;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: url("envisyn-disc.png") center/contain no-repeat;
+      box-shadow:
+        0 28px 60px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    .device-ring {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      padding: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .device-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: relative;          /* changed for quadrant layout */
+      padding: 28px;
+      background: transparent;
+    }
+
+    .pad {
+      position: absolute;
+      cursor: pointer;
+      /* transparent by default – the art underneath shows through */
+      background: transparent;
+      /* we'll simulate a "glass" overlay when active */
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35),
+        0 4px 8px rgba(0, 0, 0, 0.8);
+      transition:
+        transform 0.12s ease-out,
+        box-shadow 0.12s ease-out,
+        background 0.12s ease-out;
+      overflow: hidden;
+    }
+
+    .pad::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: transparent;
+      opacity: 0;
+      transition: opacity 0.12s ease-out;
+    }
+
+    /* Quadrant placement – sized to sit over the printed colors on the disc */
+    .pad-0 { /* top-left */
+      top: 48px;
+      left: 48px;
+      width: 140px;
+      height: 140px;
+    }
+
+    .pad-1 { /* top-right */
+      top: 48px;
+      right: 48px;
+      width: 140px;
+      height: 140px;
+    }
+
+    .pad-2 { /* bottom-left */
+      bottom: 48px;
+      left: 48px;
+      width: 140px;
+      height: 140px;
+    }
+
+    .pad-3 { /* bottom-right */
+      bottom: 48px;
+      right: 48px;
+      width: 140px;
+      height: 140px;
+    }
+
+    /* pressed / playback state */
+    .pad.active {
+      transform: translateY(2px);
+      box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.7);
+    }
+
+    .pad.active::before {
+      opacity: 1;
+      background: var(--button-active-overlay);
+    }
+
+    /* Center hub (text + start button) */
+    .center-hub {
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      inset: 0;
+      margin: auto;
+      background: radial-gradient(circle at 30% 20%, #20383b 0, #050b0c 70%);
+      box-shadow:
+        0 0 0 4px rgba(0, 0, 0, 0.8),
+        0 0 0 8px rgba(255, 255, 255, 0.05),
+        0 10px 18px rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .center-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-subtle);
+      margin-bottom: 6px;
+    }
+
+    .center-tagline {
+      font-size: 0.68rem;
+      color: var(--text-main);
+      opacity: 0.9;
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+
+    .start-button {
+      margin-top: 4px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #f8e3b8, #d0a95a);
+      color: #35250e;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow:
+        0 8px 14px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(0, 0, 0, 0.75);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out,
+        filter 0.1s ease-out;
+    }
+
+    .start-button:hover {
+      filter: brightness(1.05);
+    }
+
+    .start-button:active {
+      transform: translateY(2px);
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(0, 0, 0, 0.75);
+    }
+
+    .status-text {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: var(--text-subtle);
+      min-height: 1.1em;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 520px) {
+      .device-shell {
+        width: 320px;
+        height: 320px;
+      }
+      .device-ring {
+        width: 280px;
+        height: 280px;
+      }
+      .device-inner {
+        padding: 22px;
+      }
+      .center-hub {
+        width: 120px;
+        height: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <div class="game-title">Mosaic Simon Says</div>
+    <div class="game-subtitle">Action Cures Fear · EnviSyn</div>
+
+    <div class="sound-toggle">
+      <label class="switch">
+        <!-- default OFF -->
+        <input type="checkbox" id="soundToggle" />
+        <span class="slider"></span>
+      </label>
+      <span class="sound-label">Sound</span>
+    </div>
+
+    <div class="device-shell">
+      <div class="device-ring">
+        <div class="device-inner">
+          <!-- Four invisible-but-clickable pads over the disc artwork -->
+          <div class="pad pad-0" data-index="0"></div>
+          <div class="pad pad-1" data-index="1"></div>
+          <div class="pad pad-2" data-index="2"></div>
+          <div class="pad pad-3" data-index="3"></div>
+
+          <div class="center-hub">
+            <div class="center-title">Action Cures Fear</div>
+            <div class="center-tagline">Follow the light. Then take your next step.</div>
+            <button id="startButton" class="start-button">Start</button>
+            <div id="status" class="status-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* === SOUND EFFECTS (using your filenames) === */
+    const padSounds = [
+      new Audio("sfx_green.mp3"),   // pad 0
+      new Audio("sfx_gold.mp3"),    // pad 1
+      new Audio("sfx_white.mp3"),   // pad 2
+      new Audio("sfx_bronze.mp3"),  // pad 3
+    ];
+
+    const startSound   = new Audio("sfx_start.mp3");
+    const successSound = new Audio("sfx_success.mp3");
+    const errorSound   = new Audio("sfx_error.mp3");
+
+    let soundOn = false;
+    const soundToggle = document.getElementById("soundToggle");
+    soundToggle.addEventListener("change", () => {
+      soundOn = soundToggle.checked;
+    });
+
+    function playSound(audio) {
+      if (!soundOn || !audio) return;
+      audio.currentTime = 0;
+      audio.play();
+    }
+
+    /* === GAME LOGIC === */
+
+    const pads = Array.from(document.querySelectorAll(".pad"));
+    const startButton = document.getElementById("startButton");
+    const statusText = document.getElementById("status");
+
+    let sequence = [];
+    let userIndex = 0;
+    let isPlayingBack = false;
+    let isUserTurn = false;
+
+    function setStatus(msg) {
+      statusText.textContent = msg || "";
+    }
+
+    function getRandomPad() {
+      return Math.floor(Math.random() * 4);
+    }
+
+    function flashPad(index, duration = 500) {
+      const pad = pads[index];
+      if (!pad) return;
+
+      pad.classList.add("active");
+      playSound(padSounds[index]);
+
+      setTimeout(() => {
+        pad.classList.remove("active");
+      }, duration);
+    }
+
+    function playbackSequence() {
+      isPlayingBack = true;
+      isUserTurn = false;
+      userIndex = 0;
+      setStatus("Watch the pattern…");
+
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i >= sequence.length) {
+          clearInterval(interval);
+          isPlayingBack = false;
+          isUserTurn = true;
+          setStatus("Now repeat the pattern.");
+          return;
+        }
+        flashPad(sequence[i]);
+        i++;
+      }, 700);
+    }
+
+    function startGame() {
+      sequence = [];
+      userIndex = 0;
+      isUserTurn = false;
+      isPlayingBack = false;
+      setStatus("New game. Watch the first light.");
+      playSound(startSound);
+
+      sequence.push(getRandomPad());
+      setTimeout(playbackSequence, 600);
+    }
+
+    function handleUserPadClick(index) {
+      if (!isUserTurn || isPlayingBack) return;
+
+      flashPad(index, 200);
+
+      const correctIndex = sequence[userIndex];
+      if (index !== correctIndex) {
+        // wrong
+        isUserTurn = false;
+        setStatus("That wasn't the pattern. Try again.");
+        playSound(errorSound);
+        // brief "error" flash of all pads
+        pads.forEach((pad) => pad.classList.add("active"));
+        setTimeout(() => {
+          pads.forEach((pad) => pad.classList.remove("active"));
+        }, 400);
+        return;
+      }
+
+      userIndex++;
+
+      if (userIndex >= sequence.length) {
+        // round complete
+        playSound(successSound);
+        setStatus("Nice! Watch the next light…");
+        isUserTurn = false;
+
+        // add a new step
+        sequence.push(getRandomPad());
+        setTimeout(playbackSequence, 700);
+      }
+    }
+
+    pads.forEach((pad) => {
+      pad.addEventListener("click", () => {
+        const index = parseInt(pad.getAttribute("data-index"), 10);
+        handleUserPadClick(index);
+      });
+    });
+
+    startButton.addEventListener("click", () => {
+      startGame();
+    });
+  </script>
+</body>
+</html>
