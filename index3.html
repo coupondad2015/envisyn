@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mosaic Simon Says – EnviSyn</title>
+  <style>
+    :root {
+      --bg-main: #020b0d;
+      --bg-gradient-top: #07171a;
+      --bg-gradient-bottom: #020607;
+      --accent-gold: #d4b06b;
+      --accent-gold-soft: #f3dfb0;
+      --text-main: #f8f4ec;
+      --text-subtle: #c7d3cf;
+
+      --pad-glow: rgba(255, 255, 255, 0.45);
+      --pad-press-depth: 4px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, var(--bg-gradient-top), var(--bg-gradient-bottom));
+      color: var(--text-main);
+    }
+
+    .app-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 32px 24px 40px;
+      border-radius: 32px;
+      background: radial-gradient(circle at 20% 0%, #183338 0%, #040b0e 55%, #020506 100%);
+      box-shadow:
+        0 32px 80px rgba(0, 0, 0, 0.9),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    .title {
+      text-align: center;
+    }
+
+    .title h1 {
+      font-size: 1.6rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-gold-soft);
+    }
+
+    .title h2 {
+      font-size: 0.95rem;
+      margin-top: 6px;
+      font-weight: 400;
+      color: var(--text-subtle);
+    }
+
+    .device-shell {
+      position: relative;
+      width: 420px;
+      height: 420px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Disc background (your composite graphic) */
+    .disc-bg {
+      position: absolute;
+      inset: 0;
+      background: url("envisyn-disc.png") center/contain no-repeat;
+      filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.8));
+      pointer-events: none;
+    }
+
+    /* Interactive layer that sits over the disc */
+    .pad-layer {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pad {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      outline: none;
+      /* Make sure hover/click feels responsive */
+      transition:
+        transform 0.08s ease-out,
+        box-shadow 0.08s ease-out,
+        filter 0.12s ease-out;
+    }
+
+    .pad::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.12s ease-out;
+      box-shadow:
+        0 0 24px rgba(255, 255, 255, 0.3),
+        0 0 60px rgba(255, 255, 255, 0.3);
+    }
+
+    .pad.active {
+      transform: translateY(var(--pad-press-depth));
+      filter: brightness(1.08);
+    }
+
+    .pad.active::after {
+      opacity: 1;
+    }
+
+    /* Wedge shapes approximating the quadrants of your disc */
+
+    /* top-left quadrant (e.g., Courage / teal) */
+    .pad-0 {
+      clip-path: polygon(
+        0% 0%,
+        50% 0%,
+        50% 50%,
+        0% 50%
+      );
+      border-radius: 100% 0 0 0;
+    }
+
+    /* top-right quadrant (e.g., Action / gold) */
+    .pad-1 {
+      clip-path: polygon(
+        50% 0%,
+        100% 0%,
+        100% 50%,
+        50% 50%
+      );
+      border-radius: 0 100% 0 0;
+    }
+
+    /* bottom-left quadrant (e.g., Confidence / bronze) */
+    .pad-2 {
+      clip-path: polygon(
+        0% 50%,
+        50% 50%,
+        50% 100%,
+        0% 100%
+      );
+      border-radius: 0 0 0 100%;
+    }
+
+    /* bottom-right quadrant (e.g., Clarity / white) */
+    .pad-3 {
+      clip-path: polygon(
+        50% 50%,
+        100% 50%,
+        100% 100%,
+        50% 100%
+      );
+      border-radius: 0 0 100% 0;
+    }
+
+    /* Central START button */
+    .start-button {
+      position: relative;
+      z-index: 2;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      background: radial-gradient(circle at 30% 20%, #ffffff, #f3dfb0 45%, #c79d58 80%, #8b6b35 100%);
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(255, 255, 255, 0.25),
+        inset 0 0 20px rgba(255, 255, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 600;
+      font-size: 0.7rem;
+      color: #4a3720;
+      text-align: center;
+      transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out,
+        filter 0.1s ease-out;
+    }
+
+    .start-button:active {
+      transform: translateY(3px);
+      box-shadow:
+        0 6px 14px rgba(0, 0, 0, 0.85),
+        0 0 0 1px rgba(255, 255, 255, 0.15),
+        inset 0 0 12px rgba(255, 255, 255, 0.25);
+      filter: brightness(0.98);
+    }
+
+    .hud {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      width: 100%;
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--text-subtle);
+    }
+
+    .status {
+      flex: 1;
+    }
+
+    .status span {
+      color: var(--accent-gold-soft);
+    }
+
+    /* Sound toggle */
+    .sound-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sound-toggle label {
+      font-size: 0.8rem;
+      color: var(--text-subtle);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #3a4a4c;
+      border-radius: 24px;
+      transition: 0.2s;
+      box-shadow:
+        inset 0 0 4px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    .slider::before {
+      content: "";
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 20%, #fdfaf4, #d9cbc0);
+      box-shadow:
+        0 3px 6px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.4);
+      transition: 0.2s;
+    }
+
+    .switch input:checked + .slider {
+      background-color: #d0a95a;
+    }
+
+    .switch input:checked + .slider::before {
+      transform: translateX(22px);
+    }
+
+    @media (max-width: 540px) {
+      .device-shell {
+        width: 320px;
+        height: 320px;
+      }
+      .pad-layer {
+        width: 220px;
+        height: 220px;
+      }
+      .start-button {
+        width: 96px;
+        height: 96px;
+        font-size: 0.65rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-wrap">
+    <div class="title">
+      <h1>Mosaic Simon Says</h1>
+      <h2>Action Cures Fear · EnviSyn Edition</h2>
+    </div>
+
+    <div class="device-shell">
+      <!-- Your disc graphic -->
+      <div class="disc-bg"></div>
+
+      <!-- Interactive pads & center button -->
+      <div class="pad-layer">
+        <button class="pad pad-0" data-index="0" aria-label="Pad 1"></button>
+        <button class="pad pad-1" data-index="1" aria-label="Pad 2"></button>
+        <button class="pad pad-2" data-index="2" aria-label="Pad 3"></button>
+        <button class="pad pad-3" data-index="3" aria-label="Pad 4"></button>
+
+        <button class="start-button" id="startButton">
+          Start<br />Sequence
+        </button>
+      </div>
+    </div>
+
+    <div class="hud">
+      <div class="status">
+        Status: <span id="statusText">Tap “Start Sequence” to begin</span>
+      </div>
+
+      <div class="sound-toggle">
+        <label for="soundToggle">Sound</label>
+        <label class="switch">
+          <input type="checkbox" id="soundToggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- GAME STATE ---
+    const pads = Array.from(document.querySelectorAll(".pad"));
+    const startButton = document.getElementById("startButton");
+    const statusText = document.getElementById("statusText");
+    const soundToggle = document.getElementById("soundToggle");
+
+    let sequence = [];
+    let userIndex = 0;
+    let isPlayingBack = false;
+    let isUserTurn = false;
+    let soundEnabled = false;
+
+    // --- AUDIO SETUP (filenames you created) ---
+    const audioMap = {
+      0: new Audio("sfx_green.mp3"),
+      1: new Audio("sfx_gold.mp3"),
+      2: new Audio("sfx_white.mp3"),
+      3: new Audio("sfx_bronze.mp3"),
+      start: new Audio("sfx_start.mp3"),
+      success: new Audio("sfx_success.mp3"),
+      error: new Audio("sfx_error.mp3"),
+    };
+
+    function playSound(key) {
+      if (!soundEnabled) return;
+      const audio = audioMap[key];
+      if (!audio) return;
+      // rewind if already playing for snappy feel
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    }
+
+    soundToggle.addEventListener("change", () => {
+      soundEnabled = soundToggle.checked;
+    });
+
+    // --- GAME LOGIC ---
+
+    function getRandomPadIndex() {
+      return Math.floor(Math.random() * 4);
+    }
+
+    async function flashPad(index, duration = 550) {
+      const pad = pads[index];
+      pad.classList.add("active");
+      playSound(index);
+      await new Promise((res) => setTimeout(res, duration));
+      pad.classList.remove("active");
+    }
+
+    async function playSequence() {
+      isPlayingBack = true;
+      isUserTurn = false;
+      userIndex = 0;
+
+      statusText.textContent = "Watch the sequence…";
+
+      await new Promise((res) => setTimeout(res, 600));
+
+      for (let i = 0; i < sequence.length; i++) {
+        const idx = sequence[i];
+        await flashPad(idx);
+        await new Promise((res) => setTimeout(res, 260));
+      }
+
+      statusText.textContent = "Now repeat the pattern.";
+      isPlayingBack = false;
+      isUserTurn = true;
+    }
+
+    function resetGame(message) {
+      sequence = [];
+      userIndex = 0;
+      isPlayingBack = false;
+      isUserTurn = false;
+      statusText.textContent = message || "Tap “Start Sequence” to begin";
+    }
+
+    function handleUserPadClick(index) {
+      if (!isUserTurn || isPlayingBack || !sequence.length) return;
+
+      // quick visual + sound for the user tap
+      flashPad(index, 220);
+
+      if (index !== sequence[userIndex]) {
+        // error
+        isUserTurn = false;
+        playSound("error");
+        statusText.textContent = "Oops—mismatch. Tap Start to try again.";
+        return;
+      }
+
+      userIndex++;
+
+      if (userIndex === sequence.length) {
+        // round complete
+        isUserTurn = false;
+        playSound("success");
+        statusText.textContent = "Nice! Adding one more step…";
+
+        // brief pause then extend sequence
+        setTimeout(() => {
+          sequence.push(getRandomPadIndex());
+          playSequence();
+        }, 1000);
+      }
+    }
+
+    function startGame() {
+      if (isPlayingBack) return;
+
+      playSound("start");
+      sequence = [getRandomPadIndex()];
+      userIndex = 0;
+      statusText.textContent = "Starting pattern…";
+      playSequence();
+    }
+
+    // --- EVENT LISTENERS ---
+    pads.forEach((pad) => {
+      pad.addEventListener("click", () => {
+        const index = parseInt(pad.getAttribute("data-index"), 10);
+        handleUserPadClick(index);
+      });
+    });
+
+    startButton.addEventListener("click", () => {
+      startGame();
+    });
+  </script>
+</body>
+</html>
